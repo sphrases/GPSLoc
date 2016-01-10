@@ -1,0 +1,388 @@
+@@ -0,0 +1,386 @@
+<pre>
+
+#include&nbsp;&lt;<span style="color: #CC6600;">Servo</span>.h&gt;                        <span style="color: #7E7E7E;">// Servo lib</span>
+#include&nbsp;&lt;<span style="color: #CC6600;">TinyGPS</span>.h&gt;                      <span style="color: #7E7E7E;">// GPS lib</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;Setting&nbsp;up&nbsp;the&nbsp;reviecer&nbsp;and&nbsp;servos</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// defining pins</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> rcPinTakeControl   =  5; <span style="color: #7E7E7E;">// Switch control receiver input</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> rcPinRudder        =  4; <span style="color: #7E7E7E;">// Rudder receiver input</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> rcPinSpeed         =  3; <span style="color: #7E7E7E;">// Speed control receiver input</span>
+<span style="color: #7E7E7E;">//&nbsp;servo&nbsp;pins</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> servoRudderPin     =  45; <span style="color: #7E7E7E;">// Rudder Arduino output</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> servoSpeedPin      =  44; <span style="color: #7E7E7E;">// Speed Arduino output</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;initialising&nbsp;GPS&nbsp;variables</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+#define&nbsp;rxGPS&nbsp;19&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+#define&nbsp;txGPS&nbsp;18&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<span style="color: #CC6600;">TinyGPS</span> gps;
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;Global&nbsp;varaibles</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// GPS</span>
+<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">long</span>  age, date, time, chars = 0;
+<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">short</span> sentences = 0, failed = 0;
+<span style="color: #CC6600;">byte</span>           month, day, hour, minute, second, hundredths;
+<span style="color: #CC6600;">int</span>            year;
+<span style="color: #CC6600;">float</span>          latitude, longitude;
+<span style="color: #CC6600;">float</span>          latitude_initial, longitude_initial;
+<span style="color: #CC6600;">float</span>          <span style="color: #CC6600;">speed</span>, <span style="color: #CC6600;">course</span>;
+
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// pin 13 LED for status info</span>
+<span style="color: #CC6600;">int</span> led = 13;
+
+<span style="color: #7E7E7E;">//&nbsp;servos</span>
+<span style="color: #CC6600;">int</span> servoValueRudder  = 0;
+<span style="color: #CC6600;">int</span> servoValueSpeed   = 0;
+<span style="color: #CC6600;">int</span> servoValueControl = 0;
+
+<span style="color: #CC6600;">int</span> value = 0;
+<span style="color: #CC6600;">int</span> newServoValue = 0;
+
+<span style="color: #CC6600;">int</span> controlState = 0;                       <span style="color: #7E7E7E;">// the ControlState</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">int</span> NOTCONTROLLED    = 0;            <span style="color: #7E7E7E;">// the arduino is in control</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">int</span> HALFCONTROLLED   = 1;            <span style="color: #7E7E7E;">// the user has only control of speed</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">int</span> FULLCONTROLLED   = 2;            <span style="color: #7E7E7E;">// the user is in full ocntrol</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// a maximum of 8 servo objects can be made</span>
+<span style="color: #CC6600;">Servo</span> servoRudder;                          <span style="color: #7E7E7E;">// rudder servo</span>
+<span style="color: #CC6600;">Servo</span> servoSpeed;                           <span style="color: #7E7E7E;">// speed controller</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// calibrating PWM values, in our case MultiplexRC (RoyalPRO, RoyalSX)</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> servoMin      =  1040  ;   <span style="color: #7E7E7E;">// min PWM value</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> servoMid      =  1590 ;    <span style="color: #7E7E7E;">// avr PWM value</span>
+<span style="color: #CC6600;">static</span> <span style="color: #CC6600;">const</span> <span style="color: #CC6600;">int</span> servoMax      =  2130;     <span style="color: #7E7E7E;">// max PWM value</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<span style="color: #CC6600;">int</span> i = 0;                                  <span style="color: #7E7E7E;">// variable to store the servo position </span>
+<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">long</span> timer = 1000;                 <span style="color: #7E7E7E;">// for delay in ms </span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;							
+bool&nbsp;newData&nbsp;=&nbsp;<span style="color: #CC6600;">false</span>;          
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;Calculation&nbsp;variables</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">int</span> locked = 1;
+<span style="color: #CC6600;">int</span> lamp = 11;
+
+
+<span style="color: #CC6600;">double</span> coursetemp;
+<span style="color: #CC6600;">double</span> coursetemp1;
+<span style="color: #CC6600;">double</span> b1;
+<span style="color: #CC6600;">double</span> B2;
+<span style="color: #CC6600;">double</span> L1;
+<span style="color: #CC6600;">double</span> L2;
+
+<span style="color: #CC6600;">double</span> V;
+<span style="color: #CC6600;">double</span> H;
+<span style="color: #CC6600;">double</span> calculationstep_0, calculationstep_1, calculationstep_2, calculationstep_3, calculationstep_4;
+
+
+
+
+
+<span style="color: #7E7E7E;">//---------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;steering</span>
+<span style="color: #7E7E7E;">//---------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">double</span> goalcourse_border_down;
+<span style="color: #CC6600;">double</span> goalcourse_border_up;
+<span style="color: #CC6600;">boolean</span> signal;
+
+<span style="color: #CC6600;">double</span> dist_latitude, dist_longitude; 
+<span style="color: #CC6600;">double</span> dist;
+<span style="color: #CC6600;">double</span> sinusalpha;
+<span style="color: #CC6600;">double</span> alpha;
+
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;Setup&nbsp;section</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">void</span> <span style="color: #CC6600;"><b>setup</b></span>() {
+&nbsp;&nbsp;
+
+&nbsp;&nbsp;
+&nbsp;&nbsp;
+&nbsp;&nbsp;<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">long</span> fix_age;
+&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// the normal serial port is used for Serial.print functions to the pc and bluetooth module</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// the Arduino Mega outputs Serial to RX0/TX0 (Pin X/Y).</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// we connected a bluetooth module to those pins</span>
+&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">begin</span>(115200);                         <span style="color: #7E7E7E;">// console &amp; bluetooth output</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// serial1 is for the GPS module (model EM406A) </span>
+&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial1</b></span>.<span style="color: #CC6600;">begin</span>(4800);                          <span style="color: #7E7E7E;">// GPS input with 4800 Baud</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// defining some out- and inputs</span>
+&nbsp;&nbsp;<span style="color: #CC6600;">pinMode</span>(led, <span style="color: #006699;">OUTPUT</span>);
+&nbsp;&nbsp;<span style="color: #CC6600;">pinMode</span>(rcPinTakeControl, <span style="color: #006699;">INPUT</span>);
+&nbsp;&nbsp;<span style="color: #CC6600;">pinMode</span>(rcPinRudder, <span style="color: #006699;">INPUT</span>);
+&nbsp;&nbsp;<span style="color: #CC6600;">pinMode</span>(rcPinSpeed, <span style="color: #006699;">INPUT</span>);
+&nbsp;&nbsp;<span style="color: #CC6600;">pinMode</span>(lamp, <span style="color: #006699;">OUTPUT</span>);
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// Servo initialization</span>
+&nbsp;&nbsp;servoRudder.<span style="color: #CC6600;">attach</span>(servoRudderPin);           <span style="color: #7E7E7E;">// attaches the servo on pin 5 to the servo object </span>
+&nbsp;&nbsp;servoSpeed.<span style="color: #CC6600;">attach</span>(servoSpeedPin);             <span style="color: #7E7E7E;">// attaches the servo on pin 3 to the servo object </span>
+&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// getting initial GPS coords</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// For one second (variable "timer") we parse GPS data and report some key values</span>
+&nbsp;&nbsp;<span style="color: #CC6600;">for</span> (<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">long</span> start = <span style="color: #CC6600;">millis</span>(); <span style="color: #CC6600;">millis</span>() - start &lt; timer;)
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">while</span> (<span style="color: #CC6600;"><b>Serial1</b></span>.<span style="color: #CC6600;">available</span>())
+&nbsp;&nbsp;&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">char</span> c = <span style="color: #CC6600;"><b>Serial1</b></span>.<span style="color: #CC6600;">read</span>();
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (gps.<span style="color: #CC6600;">encode</span>(c))                        <span style="color: #7E7E7E;">// Did a new valid sentence come in?</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newData&nbsp;=&nbsp;<span style="color: #CC6600;">true</span>;
+&nbsp;&nbsp;&nbsp;&nbsp;}
+&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;
+&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (newData == <span style="color: #CC6600;">true</span>)                          <span style="color: #7E7E7E;">// Did a new valid sentence come in?</span>
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// Establishing a fix </span>
+&nbsp;&nbsp;&nbsp;gps.<span style="color: #CC6600;">f_get_position</span>(&amp;latitude_initial, &amp;longitude_initial, &amp;fix_age);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (fix_age == <span style="color: #CC6600;">TinyGPS</span>::<span style="color: #006699;">GPS_INVALID_AGE</span>)    <span style="color: #7E7E7E;">// if " == TinyGPS::GPS_INVALID_AGE" is returned, GPS might not have a fix</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"Cannot lock initial position"</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// when "fix_age" is higher then 1500 a possible loss of data could happen</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">else</span> <span style="color: #CC6600;">if</span> (fix_age &gt; 1500)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"Warning: possible loss of data!"</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">else</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"Initial position set"</span>);  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;signal&nbsp;=&nbsp;1;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// getting speed</span>
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">speed</span> = gps.<span style="color: #CC6600;">f_speed_kmph</span>();                  <span style="color: #7E7E7E;">// speed in km/h</span>
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">course</span> = gps.<span style="color: #CC6600;">f_course</span>();                     <span style="color: #7E7E7E;">// course in degree</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// initial values are put out         </span>
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"----------------------------------------------------------------------------------------------"</span>);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(latitude_initial, 6); 
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">";"</span>);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(longitude_initial, 6);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">";"</span>);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #CC6600;">speed</span>, 6);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">";"</span>);
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #CC6600;">course</span>, 6);                                             
+&nbsp;&nbsp;&nbsp;newData&nbsp;=&nbsp;<span style="color: #CC6600;">false</span>;                            <span style="color: #7E7E7E;">// "newData" to false, so the program works later</span>
+&nbsp;&nbsp;}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of "if (newData == true)"   </span>
+}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of setup</span>
+
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;Main&nbsp;programm</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">void</span> <span style="color: #CC6600;"><b>loop</b></span>() {
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gpsRead();&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// reading GPS data</span>
+&nbsp;&nbsp;
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;calculating&nbsp;the&nbsp;course</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;L1&nbsp;=&nbsp;longitude_initial;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;L2&nbsp;=&nbsp;longitude;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1&nbsp;=&nbsp;latitude_initial;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B2&nbsp;=&nbsp;latitude&nbsp;;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;calculationstep_1&nbsp;=&nbsp;(L2-L1)&nbsp;/&nbsp;(B2-b1);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;calculationstep_2&nbsp;=&nbsp;<span style="color: #CC6600;">cos</span>(b1 * 0.01745329251) * (calculationstep_1);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;calculationstep_3&nbsp;=&nbsp;<span style="color: #CC6600;">atan</span>(calculationstep_2);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;calculationstep_4&nbsp;=&nbsp;57.2957795&nbsp;*&nbsp;calculationstep_3;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">if</span> ((B2 - b1) &gt; 0 &amp;&amp;  (L2 - L1) &lt;= 0)
+&nbsp;&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;coursetemp&nbsp;=&nbsp;calculationstep_4&nbsp;+&nbsp;360;
+&nbsp;&nbsp;&nbsp;}
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">else</span> <span style="color: #CC6600;">if</span>((B2 - b1) &lt; 0) 
+&nbsp;&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;coursetemp&nbsp;=&nbsp;calculationstep_4&nbsp;+&nbsp;180;
+&nbsp;&nbsp;&nbsp;}
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">else</span> coursetemp = calculationstep_4;
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (coursetemp &gt; 180)
+&nbsp;&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;coursetemp1&nbsp;=&nbsp;coursetemp&nbsp;-&nbsp;180;
+&nbsp;&nbsp;&nbsp;}
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">else</span> {coursetemp1 = coursetemp + 180; }
+&nbsp;&nbsp;&nbsp;
+
+&nbsp;&nbsp;<span style="color: #7E7E7E;">// --------------------------------------------------------------------------------------------------------------</span>
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;gpsDataPrint();&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// printing GPS data on serial</span>
+&nbsp;&nbsp;readPinPosition();&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// getting ControlState</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// how is the boat controlled?</span>
+&nbsp;&nbsp;<span style="color: #CC6600;">switch</span> (controlState)
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">case</span> 2:                                        <span style="color: #7E7E7E;">// FULLCONTROLLED: the user is in control, all values are put through to the esc</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;servoRudder.<span style="color: #CC6600;">write</span>(<span style="color: #CC6600;">pulseIn</span>(rcPinRudder, <span style="color: #006699;">HIGH</span>));
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;servoSpeed.<span style="color: #CC6600;">write</span>(<span style="color: #CC6600;">pulseIn</span>(rcPinSpeed, <span style="color: #006699;">HIGH</span>));
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">break</span>;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">case</span> 1:                                        <span style="color: #7E7E7E;">// HALFCONTROLLED: user has control of speed, arduino is steering</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ruddercourse();
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;servoSpeed.<span style="color: #CC6600;">write</span>(<span style="color: #CC6600;">pulseIn</span>(rcPinSpeed, <span style="color: #006699;">HIGH</span>));      
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">break</span>;
+&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">default</span>:                                       <span style="color: #7E7E7E;">// NOTCONTROLLED: arduino is in control</span>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;servoSpeed.<span style="color: #CC6600;">write</span>(1400);                   <span style="color: #7E7E7E;">// half speed</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ruddercourse();
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"Der Arduino hat das Ruder"</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">break</span>;  
+&nbsp;&nbsp;}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of switch </span>
+}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end loop</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+
+
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;other&nbsp;methods:</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;reading&nbsp;the&nbsp;position&nbsp;of&nbsp;the&nbsp;ControlState&nbsp;switch</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #CC6600;">void</span> readPinPosition()                              <span style="color: #7E7E7E;">// ControlState (G switch on our radio)</span>
+{
+&nbsp;&nbsp;value&nbsp;=&nbsp;<span style="color: #CC6600;">pulseIn</span>(rcPinTakeControl, <span style="color: #006699;">HIGH</span>);          <span style="color: #7E7E7E;">// the PWM value of the reciever is read</span>
+&nbsp;&nbsp;servoValueControl&nbsp;=&nbsp;<span style="color: #CC6600;">map</span>(value, servoMin, servoMax, 0, 255); <span style="color: #7E7E7E;">// the PWM values are mapped from 0 to 255</span>
+&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (servoValueControl &lt; 30)                                    <span style="color: #7E7E7E;">// 2 -- Switch case</span>
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;controlState&nbsp;=&nbsp;NOTCONTROLLED;
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">digitalWrite</span>(led, <span style="color: #006699;">LOW</span>);
+
+&nbsp;&nbsp;}
+&nbsp;&nbsp;<span style="color: #CC6600;">else</span> <span style="color: #CC6600;">if</span> (servoValueControl &gt;= 30 &amp;&amp; servoValueControl &lt;= 190 ) <span style="color: #7E7E7E;">// 1</span>
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;controlState&nbsp;=&nbsp;HALFCONTROLLED;
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">digitalWrite</span>(led, <span style="color: #006699;">HIGH</span>);
+&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;}
+&nbsp;&nbsp;<span style="color: #CC6600;">else</span>                                                           <span style="color: #7E7E7E;">// 0 </span>
+&nbsp;&nbsp;{&nbsp;
+&nbsp;&nbsp;&nbsp;controlState&nbsp;=&nbsp;FULLCONTROLLED;
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">digitalWrite</span>(led, <span style="color: #006699;">HIGH</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;}
+}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of method</span>
+
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;GPS&nbsp;read</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #CC6600;">void</span> gpsRead()
+{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// a timer is set for 1 second to let the GPS read the initial values</span>
+&nbsp;&nbsp;<span style="color: #CC6600;">for</span> (<span style="color: #CC6600;">unsigned</span> <span style="color: #CC6600;">long</span> start = <span style="color: #CC6600;">millis</span>(); <span style="color: #CC6600;">millis</span>() - start &lt; (timer / 2);)
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">while</span> (<span style="color: #CC6600;"><b>Serial1</b></span>.<span style="color: #CC6600;">available</span>())
+&nbsp;&nbsp;&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">char</span> c = <span style="color: #CC6600;"><b>Serial1</b></span>.<span style="color: #CC6600;">read</span>();
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (gps.<span style="color: #CC6600;">encode</span>(c))                                      
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newData&nbsp;=&nbsp;<span style="color: #CC6600;">true</span>;
+&nbsp;&nbsp;&nbsp;&nbsp;}
+&nbsp;&nbsp;}
+&nbsp;&nbsp;
+&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (newData == <span style="color: #CC6600;">true</span>)
+&nbsp;&nbsp;{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;gps.<span style="color: #CC6600;">f_get_position</span>(&amp;latitude, &amp;longitude);                  <span style="color: #7E7E7E;">// latitude / longitude                                                            </span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;">speed</span> = gps.<span style="color: #CC6600;">f_speed_kmph</span>();                                 <span style="color: #7E7E7E;">// getting speed in km/h</span>
+&nbsp;&nbsp;}
+}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of method</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;GPS&nbsp;encode</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">void</span> gpsData() 
+&nbsp;{
+&nbsp;&nbsp;&nbsp;gps.<span style="color: #CC6600;">f_get_position</span>(&amp;latitude, &amp;longitude);
+&nbsp;&nbsp;&nbsp;gps.<span style="color: #CC6600;">stats</span>(&amp;chars, &amp;sentences, &amp;failed);
+&nbsp;&nbsp;&nbsp;gps.<span style="color: #CC6600;">crack_datetime</span>(&amp;year, &amp;month, &amp;day, &amp;hour, &amp;minute, &amp;second, &amp;hundredths, &amp;age); 
+&nbsp;}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of method</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;output&nbsp;of&nbsp;GPS&nbsp;data&nbsp;</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #CC6600;">void</span> gpsDataPrint()
+&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// values are put out via the serial port (in our case on a phone via a bluetooth serial dongle thingy)</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"____________________"</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(latitude_initial, 6); 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"; "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(longitude_initial, 6);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">" "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(latitude, 6); 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"; "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(longitude, 6);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">""</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"current GPS course  "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #CC6600;">course</span>, 6);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"course in home direction  "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(coursetemp1, 6);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"ControlState "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(controlState);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">print</span>(<span style="color: #006699;">"rudder value   "</span>);
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #CC6600;">pulseIn</span>(rcPinRudder, <span style="color: #006699;">HIGH</span>));
+
+&nbsp;}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #7E7E7E;">// end of method</span>
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;calculation&nbsp;2</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;distinguishing&nbsp;if&nbsp;the&nbsp;boat&nbsp;should&nbsp;turn&nbsp;left&nbsp;or&nbsp;right</span>
+
+<span style="color: #CC6600;">void</span> ruddercourse()
+{
+&nbsp;&nbsp;<span style="color: #CC6600;">double</span> grenze = 25;
+&nbsp;&nbsp;goalcourse_border_down&nbsp;=&nbsp;coursetemp1&nbsp;-&nbsp;grenze;
+&nbsp;&nbsp;goalcourse_border_up&nbsp;=&nbsp;coursetemp1&nbsp;+&nbsp;grenze;
+&nbsp;&nbsp;<span style="color: #CC6600;">if</span> (<span style="color: #CC6600;">course</span> &gt; goalcourse_border_down &amp;&amp; <span style="color: #CC6600;">course</span> &lt; goalcourse_border_up)
+&nbsp;&nbsp;{
+&nbsp;&nbsp;servoRudder.<span style="color: #CC6600;">write</span>(1590);
+&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"straight "</span>);
+&nbsp;&nbsp;}
+&nbsp;&nbsp;<span style="color: #CC6600;">else</span> <span style="color: #CC6600;">if</span> (coursetemp1 &gt; (<span style="color: #CC6600;">course</span> / 2))
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;servoRudder.<span style="color: #CC6600;">write</span>(1300);
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"right"</span>);  
+&nbsp;&nbsp;}&nbsp;<span style="color: #CC6600;">else</span>
+&nbsp;&nbsp;{
+&nbsp;&nbsp;&nbsp;&nbsp;servoRudder.<span style="color: #CC6600;">write</span>(1680);
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"left"</span>);
+&nbsp;&nbsp;}
+&nbsp;&nbsp;
+&nbsp;&nbsp;
+&nbsp;&nbsp;
+}
+
+
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+<span style="color: #7E7E7E;">//&nbsp;telling&nbsp;if&nbsp;the&nbsp;user&nbsp;has&nbsp;control</span>
+<span style="color: #7E7E7E;">//&nbsp;--------------------------------------------------------------------------------------------------------------</span>
+
+<span style="color: #CC6600;">void</span> lenkPrint()
+{
+&nbsp;&nbsp;<span style="color: #CC6600;"><b>Serial</b></span>.<span style="color: #CC6600;">println</span>(<span style="color: #006699;">"user in control"</span>);
+}
+
+</pre>
+\ No newline at end of file
